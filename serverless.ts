@@ -1,6 +1,6 @@
 import type { AWS } from '@serverless/typescript';
 
-import hello from '@functions/hello';
+import http2 from '@functions/http2';
 
 const serverlessConfiguration: AWS = {
   service: 'my-serverless',
@@ -16,10 +16,49 @@ const serverlessConfiguration: AWS = {
     environment: {
       AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1',
       NODE_OPTIONS: '--enable-source-maps --stack-trace-limit=1000',
+      GROUPS_TABLE: "Groups-${self:provider.stage}"
     },
+    stage: "${opt:stage, 'dev'}",
+    region: 'us-east-1',
+
+    iamRoleStatements: [
+      {
+        Effect: "Allow",
+        Action: [
+          "dynamodb:Scan",
+          "dynamodb:PutItem",
+          "dynamodb:GetItem"
+        ],
+        Resource: "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.GROUPS_TABLE}"
+      }
+    ]
   },
   // import the function via paths
-  functions: { hello },
+  functions: { http2 },
+  resources: {
+    Resources: {
+      GroupsDynamoDBTable: {
+        Type: "AWS::DynamoDB::Table",
+        Properties: {
+          AttributeDefinitions: [
+            {
+              AttributeName: "id",
+              AttributeType: "S"
+            }
+          ],
+          KeySchema: [
+            {
+              AttributeName: "id",
+              KeyType: "HASH"
+            }
+          ],
+          BillingMode: "PAY_PER_REQUEST",
+          TableName: "${self:provider.environment.GROUPS_TABLE}"
+        }
+      }
+
+    }
+  },
   package: { individually: true },
   custom: {
     esbuild: {
